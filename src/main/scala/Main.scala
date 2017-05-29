@@ -1,8 +1,10 @@
 import Events._
 import Requests.IBRequest
-import akka.actor.{ActorSystem, Cancellable}
+import akka.NotUsed
+import akka.actor.ActorSystem
 import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink, Source}
 import akka.stream.{ActorMaterializer, ClosedShape}
+import com.ib.client.{EClientSocket, EJavaSignal}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -13,21 +15,29 @@ object Main extends App {
   implicit val materializer = ActorMaterializer()
 
   val log = LoggerFactory.getLogger(getClass)
-  val ib = new IBTws("127.0.0.1")
+  val host = "localhost"
 
   val graph = RunnableGraph.fromGraph(GraphDSL.create() { implicit b =>
     import GraphDSL.Implicits._
 
-    val tick: Source[IBRequest, Cancellable] =
-      Source.tick(
-        10.seconds, 10.seconds,
-        Requests.AccountSummary(1, "All", "CashBalance")
-      )
+    val readerSignal = new EJavaSignal()
+    val (source, wrapper) = IBTws.source
+    val socket: EClientSocket = new EClientSocket(wrapper, readerSignal)
+    val sink = IBTws.sink(socket)
 
-    val ibEvents = b.add(ib.source)
-    val ibCommands = b.add(ib.sink)
+    socket.eConnect(host, 7497, 0)
+    socket.startAPI()
+    IBTws.startReader(socket, readerSignal)
 
-    tick ~> ibCommands
+    val accountUpdates: Source[IBRequest, NotUsed] =
+      Source.single(
+        Requests.AccountUpdates(subscribe = true, "DU533521")
+      ).delay(20.seconds)
+
+    val ibEvents = b.add(source)
+    val ibCommands = b.add(sink)
+
+    accountUpdates ~> ibCommands
 
     ibEvents ~> Sink.foreach[IBEvent]({
       case ConnectionOK =>
@@ -38,8 +48,9 @@ object Main extends App {
         log.warn(s"IB Error Message Returned: $m")
       case Error(id, code, msg) =>
         log.warn(s"IB Error id: $id, code: $code, message: $msg")
-      case other =>
-        log.info(s"Received IB Message: $other")
+      case m: UpdateAccountValue =>
+        log.info(s"Account Update: $m")
+      case _ =>
     })
     ClosedShape
   })

@@ -4,6 +4,18 @@ import java.util
 
 object Requests {
   sealed trait IBRequest
+  case object StartAPI extends IBRequest
+  case object CancelPositions extends IBRequest
+  case class HistogramData(i: Int, contract: Contract, b: Boolean, s: String) extends IBRequest
+  case class MatchingSymbols(i: Int, s: String) extends IBRequest
+  case class CancelOrder(i: Int) extends IBRequest
+  case class CancelAccountSummary(i: Int) extends IBRequest
+  case class CancelAccountUpdatesMulti(i: Int) extends IBRequest
+  case class UnsubscribeFromGroupEvents(i: Int) extends IBRequest
+  case class VerifyMessage(s: String) extends IBRequest
+  case class QueryDisplayGroups(i: Int) extends IBRequest
+  case object TwsConnectionTime extends IBRequest
+  case object ServerVersion extends IBRequest
   case class SoftDollarTiers(reqId: Int) extends IBRequest
   case object OpenOrders extends IBRequest
   case class MarketDataType(marketDataType: Int) extends IBRequest
@@ -19,7 +31,7 @@ object Requests {
   case class Ids(numIds: Int) extends IBRequest
   case object CurrentTime extends IBRequest
   case class CalculateImpliedVolatility(reqId: Int, contract: Contract, optionPrice: Double, underPrice: Double) extends IBRequest
-  case class MktData(i: Int, contract: Contract, s: String, b: Boolean, list: util.List[TagValue]) extends IBRequest
+  case class MktData(i: Int, contract: Contract, s: String, b: Boolean, b1: Boolean, list: util.List[TagValue]) extends IBRequest
   case object AllOpenOrders extends IBRequest
   case object GlobalCancel extends IBRequest
   case class AccountSummary(reqId: Int, group: String, tags: String) extends IBRequest
